@@ -1,0 +1,26 @@
+
+# config.yml
+build:
+  enabled: true
+  xlsx: data/EnergieUebersichtCH-2024.xlsx
+  ergebnis: data/2024-PRL-SRL-TRL-Ergebnis.csv
+  out_csv: out/2024_overflow/srl_activation_vs_awarded_2024.csv
+
+sim:
+  input: out/2024_ymax_100/srl_activation_vs_awarded_2024.csv
+  compare_to: awarded
+  cap_mwh: 2
+  power_mw: 1
+  soc0_pct: 50
+  outdir: out/2024_Korrektur_Tag2_neu_bias20
+  allow_overflow: true
+
+  # Zeitraum (optional, gilt für beide Modi)
+  start: 2024-03-01
+  end: 2024-03-02
+
+  # Moduswahl
+  mode: fixed_bias        # oder: market_only
+  target_soc_pct: 50
+  bias_share_pct: 20
+  bias_deadband_pct: 0

@@ -1,0 +1,24 @@
+# Python / venv
+.venv/
+__pycache__/
+*.pyc
+
+# Build/Cache
+dist/
+build/
+*.egg-info/
+
+# Outputs
+out/
+*.png
+
+# Lokale Daten (nicht ins Repo)
+data/
+# Falls du kleine Demo-Dateien willst: data/sample/*
+# !data/sample/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

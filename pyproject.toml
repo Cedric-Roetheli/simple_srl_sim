@@ -1,0 +1,12 @@
+
+[build-system]
+requires = ["setuptools", "wheel"]
+
+[project]
+name = "simple-srl-sim"
+version = "0.1.0"
+description = "Minimal SRL storage simulator - first iteration (market-only)"
+authors = [{name = "Cédric Rötheli"}]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["pandas", "matplotlib", "pyyaml"]
