@@ -6,7 +6,7 @@ import yaml
 
 from .analyzer import load_year_csv, ensure_pct_cols, slice_timeframe
 from .storage import Config, simulate_market_only, simulate_market_fixed_bias
-from .plotting import plot_soc, plot_soc_with_bounds, plot_power, plot_pct_net, plot_activation_rates, plot_cum_energy_components, plot_budget_utilization, plot_soc_with_target, plot_power_components_fixed_bias, plot_power_components_bars_with_setpoint2, plot_power_components_bars_with_soc2
+from .plotting import plot_soc, plot_soc_with_bounds, plot_power, plot_pct_net, plot_activation_rates, plot_cum_energy_components, plot_budget_utilization, plot_soc_with_target, plot_power_components_fixed_bias, plot_power_components_bars_with_setpoint2, plot_power_components_bars_with_soc2, plot_energy_components3, plot_power_components2
 from .build_market_csv import build_market_csv_from_files
 
 def run_sim(input_csv: Path, compare_to: str, cap_mwh: float, power_mw: float, soc0_pct: float,
@@ -57,18 +57,60 @@ def run_sim(input_csv: Path, compare_to: str, cap_mwh: float, power_mw: float, s
             plot_cum_energy_components(sim, outdir / "cum_energy_components.png",
                                     title="Kumulierte Energieanteile (|SRL| vs. |Bias|)")
             
-            plot_power_components_bars_with_setpoint2(sim, outdir / "power_components_bars_with_setpoint.png",
-                                    connect_line=True, step_line=True, show_segments=False,
-                                    bar_mode="always"  # <- Balken identisch zur SOC-Version, Setpoint als Linie)
-            )
+            #plot_power_components_bars_with_setpoint2(sim, outdir / "power_components_bars_with_setpoint.png",
+                                    #connect_line=True, step_line=True, show_segments=False,
+                                    #bar_mode="always"  # <- Balken identisch zur SOC-Version, Setpoint als Linie)
+            #)
             
-            plot_power_components_bars_with_soc2(sim, outdir / "power_components_bars_with_soc.png",
-                                    title="SRL & Korrektur (gestapelt) + SoC (rechte Achse)",
-                                    target_soc_pct=target_soc_pct,
-                                    deadband_pct=bias_deadband_pct,
+            #plot_power_components_bars_with_soc2(sim, outdir / "power_components_bars_with_soc.png",
+                                #    title="SRL & Korrektur (gestapelt) + SoC (rechte Achse)",
+                                #   target_soc_pct=target_soc_pct,
+                                #    deadband_pct=bias_deadband_pct,
+                                #    connect_line=True,
+                                #    show_segments=False,
+                                #    max_intervals=10**9
+                                #)
+
+            plot_power_components2(
+                                    sim,
+                                    outdir / "power_components2.png",
+                                    title="Leistungskomponenten (SRL & Korrektur)",
+                                    bar_width=0.9,
+                                    max_intervals=10**9,
+                                    color_alpha=0.55,
+                                    show_net=True,
+                                    net_mode="cmd",      # alternativ: "market_minus_bias"
+                                    step_line=True,
+                                )
+            #plot_energy_components2(
+                                    #sim,
+                                    #outdir / "energy_components2.png",
+                                    #title="Energiekomponenten (SRL & Korrektur) + SoC (rechte Achse)",
+                                    #bar_width=0.9,
+                                    #max_intervals=10**9,
+                                    #color_alpha=0.55,
+                                    #show_cum_net=False,
+                                    #show_soc=True,        # SoC an
+                                    #connect_line=True,    # Linie verbinden
+                                    #show_segments=False,  # KEINE kleinen Segment-Striche
+                                    #target_soc_pct=target_soc_pct,
+                                    #deadband_pct=bias_deadband_pct,
+                                #)
+            plot_energy_components3(
+                                    sim,
+                                    outdir / "energy_components3.png",
+                                    title="Energiekomponenten (SRL & Korrektur) + SoC",
+                                    bar_width=0.9,
+                                    max_intervals=10**9,
+                                    color_alpha=0.55,
+                                    show_cum_net=False,
+                                    show_soc=True,
                                     connect_line=True,
                                     show_segments=False,
-                                    max_intervals=10**9
+                                    target_soc_pct=target_soc_pct,
+                                    deadband_pct=bias_deadband_pct,
+                                    fix_axes=True,
+                                    soc_ylim=(-10, 110),
                                 )
 
 

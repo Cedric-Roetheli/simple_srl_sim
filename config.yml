@@ -11,13 +11,13 @@ sim:
   compare_to: awarded
   cap_mwh: 2
   power_mw: 1
-  soc0_pct: 50
-  outdir: out/2024_Korrektur_Tag2_neu_bias20
+  soc0_pct: 53.288
+  outdir: out/AA_BIAS_20_KW31
   allow_overflow: true
 
   # Zeitraum (optional, gilt für beide Modi)
-  start: 2024-03-01
-  end: 2024-03-02
+  start: 2024-07-29
+  end: 2024-08-05
 
   # Moduswahl
   mode: fixed_bias        # oder: market_only

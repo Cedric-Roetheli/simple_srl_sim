@@ -443,20 +443,27 @@ def plot_power_components_bars_with_soc2(
     half = bar_width / 2.0
     if show_segments:
         for i in range(n):
-            ax2.hlines(SOC[i], x[i]-half, x[i]+half, colors="black", linewidth=1.0, zorder=5)
+            ax2.hlines(SOC[i], x[i]-half, x[i]+half, colors="black", linewidth=1.0, zorder=6)
+
+    # durchgehende SoC-Linie
     if connect_line:
-        ax2.plot(x, SOC, color="black", lw=1.2, label="SoC [%] (rechte Achse)", zorder=6)
+        ax2.plot(x, SOC, color="black", lw=1.2, label="SoC [%] (rechte Achse)", zorder=7)
     else:
-        ax2.plot(x, SOC, "k.", ms=2, label="SoC [%] (rechte Achse)", zorder=6)
+        ax2.plot(x, SOC, "k.", ms=2, label="SoC [%] (rechte Achse)", zorder=7)
+
+    # >>> NEU: Cap-Grenzen 0% / 100% auf der rechten Achse
+    ax2.axhline(0,   color="red", lw=1.0, zorder=5)
+    ax2.axhline(100, color="red", lw=1.0, zorder=5)
+
     ax2.set_ylabel("SoC [%]")
 
-    # Zielband optional
+    # Zielband optional wie gehabt
     if target_soc_pct is not None:
-        ax2.axhline(target_soc_pct, ls="--", lw=0.9)
+        ax2.axhline(target_soc_pct, ls="--", lw=0.9, zorder=5)
         if deadband_pct and deadband_pct > 0:
             lo = target_soc_pct - deadband_pct
             hi = target_soc_pct + deadband_pct
-            ax2.fill_between(x, lo, hi, alpha=0.08)  # bleibt dezent
+            ax2.fill_between(x, lo, hi, alpha=0.08, zorder=4)
 
     ts = pd.to_datetime(d["timestamp"])
     idx = np.linspace(0, n - 1, num=min(8, n), dtype=int)
@@ -547,3 +554,341 @@ def plot_power_components_bars_with_setpoint2(
         plt.axhline(0, ls="--", lw=0.8)
         plt.ylabel("MW"); plt.title(title); plt.legend()
         plt.tight_layout(); plt.savefig(out_png, dpi=150); plt.close()
+
+
+def plot_power_components2(
+    df: pd.DataFrame,
+    out_png: Path,
+    title: str = "Leistungskomponenten (SRL & Korrektur)",
+    bar_width: float = 0.9,
+    max_intervals: int = 96,
+    color_alpha: float = 0.55,
+    show_net: bool = True,
+    net_mode: str = "cmd",  # "cmd" (=P_mkt+P_bias) oder "market_minus_bias" (=P_mkt-P_bias)
+    step_line: bool = True,
+) -> None:
+    need = {"timestamp","market_power_mw","bias_power_mw","cmd_power_mw"}
+    if not need.issubset(df.columns):
+        raise KeyError(f"Erwarte Spalten: {need}")
+
+    d = df.sort_values("timestamp").reset_index(drop=True)
+    n = len(d)
+    x = np.arange(n)
+
+    M = d["market_power_mw"].astype(float).to_numpy()
+    B = d["bias_power_mw"].astype(float).to_numpy()
+
+    # Netto-Leistung wählen
+    if net_mode == "market_minus_bias":
+        Pnet = (M - B)
+        net_label = "Netto (Abruf−Korrektur, theoretisch)"
+    else:  # "cmd"
+        Pnet = d["cmd_power_mw"].astype(float).to_numpy()
+        net_label = "Netto-Leistung (gefahren)"
+
+    # Pos/Neg aufteilen für saubere Stacks
+    M_pos = np.clip(M, 0, None); M_neg = np.clip(M, None, 0)
+    B_pos = np.clip(B, 0, None); B_neg = np.clip(B, None, 0)
+
+    use_bars = n <= max_intervals
+    fig, ax = plt.subplots(figsize=(12, 4.2))
+
+    if use_bars:
+        # Gestapelte Balken (dezent)
+        ax.bar(x, M_pos, width=bar_width, color="blue",   alpha=color_alpha, label="SRL+ (blau)", linewidth=0)
+        ax.bar(x, B_pos, width=bar_width, color="green",  alpha=color_alpha, label="Korrektur (grün)", linewidth=0, bottom=M_pos)
+        ax.bar(x, M_neg, width=bar_width, color="orange", alpha=color_alpha, label="SRL− (orange)", linewidth=0)
+        ax.bar(x, B_neg, width=bar_width, color="green",  alpha=color_alpha, linewidth=0, bottom=M_neg)
+    else:
+        # Fallback: Linien (lange Zeitfenster)
+        ax.plot(d["timestamp"], M, lw=0.8, alpha=0.65, label="SRL")
+        ax.plot(d["timestamp"], B, lw=0.8, alpha=0.65, label="Korrektur")
+
+    # Netto-Linie optional
+    if show_net:
+        if use_bars and step_line:
+            ax.step(x, Pnet, where="mid", color="black", lw=1.2, label=net_label, zorder=7)
+        else:
+            ax.plot(d["timestamp"] if not use_bars else x, Pnet, color="black", lw=1.2, label=net_label, zorder=7)
+
+    ax.axhline(0, ls="--", lw=0.8)
+    ax.set_ylabel("Leistung [MW]")
+    ax.set_title(title)
+
+    # X-Achse hübsch beschriften
+    ts = pd.to_datetime(d["timestamp"])
+    idx = np.linspace(0, n - 1, num=min(8, n), dtype=int)
+    ax.set_xticks(idx if use_bars else ax.get_xticks())
+    if use_bars:
+        ax.set_xticklabels([ts.iloc[i].strftime("%d.%m %H:%M") for i in idx], rotation=30, ha="right")
+
+    # Legend nur unique
+    h, l = ax.get_legend_handles_labels()
+    uniq = dict(zip(l, h))
+    ax.legend(uniq.values(), uniq.keys(), loc="upper left")
+
+    fig.tight_layout()
+    fig.savefig(out_png, dpi=150)
+    plt.close(fig)
+
+
+def plot_energy_components2(
+    df: pd.DataFrame,
+    out_png: Path,
+    title: str = "Energiekomponenten (SRL & Korrektur)",
+    bar_width: float = 0.9,
+    max_intervals: int = 96,
+    color_alpha: float = 0.55,
+    show_cum_net: bool = False,   # kumulierte Netto-Energie-Linie
+    show_soc: bool = True,        # >>> SoC rechts anzeigen
+    connect_line: bool = True,    # SoC-Punkte verbinden
+    show_segments: bool = True,   # kurze SoC-Segmente pro Intervall
+    target_soc_pct: float | None = None,
+    deadband_pct: float = 0.0,
+) -> None:
+    need = {"timestamp","market_power_mw","bias_power_mw","cmd_power_mw"}
+    if show_soc:
+        need = need | {"soc_pct"}
+    if not need.issubset(df.columns):
+        raise KeyError(f"Erwarte Spalten: {need}")
+
+    DT_H = 0.25  # 15 min
+    d = df.sort_values("timestamp").reset_index(drop=True)
+    n = len(d)
+    x = np.arange(n)
+
+    # Leistungen -> Energien
+    M = d["market_power_mw"].astype(float).to_numpy()
+    B = d["bias_power_mw"].astype(float).to_numpy()
+    P = d["cmd_power_mw"].astype(float).to_numpy()
+
+    E_M = M * DT_H
+    E_B = B * DT_H
+    E_P = P * DT_H
+
+    # Pos/Neg trennen zum Stapeln
+    M_pos = np.clip(E_M, 0, None); M_neg = np.clip(E_M, None, 0)
+    B_pos = np.clip(E_B, 0, None); B_neg = np.clip(E_B, None, 0)
+
+    use_bars = n <= max_intervals
+    fig, ax = plt.subplots(figsize=(12, 4.2))
+
+    if use_bars:
+        ax.bar(x, M_pos, width=bar_width, color="blue",   alpha=color_alpha, label="SRL+ Energie",   linewidth=0)
+        ax.bar(x, B_pos, width=bar_width, color="green",  alpha=color_alpha, label="Korr.-Energie", linewidth=0, bottom=M_pos)
+        ax.bar(x, M_neg, width=bar_width, color="orange", alpha=color_alpha, label="SRL− Energie",  linewidth=0)
+        ax.bar(x, B_neg, width=bar_width, color="green",  alpha=color_alpha, linewidth=0, bottom=M_neg)
+    else:
+        ax.plot(d["timestamp"], E_M, lw=0.8, alpha=0.65, label="SRL-Energie")
+        ax.plot(d["timestamp"], E_B, lw=0.8, alpha=0.65, label="Korr.-Energie")
+
+    # Optional: kumulierte Netto-Energie (Diagnose)
+    if show_cum_net:
+        cum = np.cumsum(E_P)
+        if use_bars:
+            ax.plot(x, cum, color="black", lw=1.0, label="kumulierte Netto-Energie", zorder=7)
+        else:
+            ax.plot(d["timestamp"], cum, color="black", lw=1.0, label="kumulierte Netto-Energie", zorder=7)
+
+    ax.axhline(0, ls="--", lw=0.8)
+    ax.set_ylabel("Energie pro Intervall [MWh]")
+    ax.set_title(title)
+
+    # SoC-Overlay auf rechter Achse: 50% exakt auf E=0, -10%/110% immer sichtbar, nur Linie
+    if show_soc:
+        SOC = d["soc_pct"].astype(float).to_numpy()
+
+        # Zwillingsachse sauber über der linken Achse platzieren
+        ax2 = ax.twinx()
+        ax2.set_zorder(ax.get_zorder() + 1)
+        ax2.patch.set_alpha(0.0)   # transparent, damit Balken nicht übermalt werden
+
+        # 1) linke Achse: Position der E=0-Linie (in Achsenkoordinaten 0..1)
+        ymin, ymax = ax.get_ylim()
+        if ymax <= ymin:
+            pos = 0.5
+        else:
+            pos = (0.0 - ymin) / (ymax - ymin)
+        pos = float(np.clip(pos, 0.10, 0.90))  # stabil, nicht am Rand kleben
+
+        # 2) SoC-Achsenfenster so setzen, dass:
+        #    - SoC=50% genau bei 'pos' liegt,
+        #    - -10% und 110% sicher enthalten sind,
+        #    - tatsächliche SoC-Daten ebenfalls enthalten sind
+        soc_min = float(np.nanmin(SOC)) if len(SOC) else 50.0
+        soc_max = float(np.nanmax(SOC)) if len(SOC) else 50.0
+        bounds_min = min(soc_min, -10.0)
+        bounds_max = max(soc_max, 110.0)
+
+        eps = 1e-12
+        # a = 50 - pos*R, b = 50 + (1-pos)*R  → (50-a)/(b-a) == pos
+        R1 = (50.0 - bounds_min) / max(pos, eps)
+        R2 = (bounds_max - 50.0) / max(1.0 - pos, eps)
+        R  = max(R1, R2, 1.0)
+
+        a = 50.0 - pos * R
+        b = 50.0 + (1.0 - pos) * R
+        ax2.set_ylim(a, b)
+
+        # 3) SoC als durchgehende Linie (keine Segmente)
+        line_x = x if use_bars else d["timestamp"]
+        ax2.plot(line_x, SOC, color="black", lw=1.2, label="SoC [%] (rechte Achse)", zorder=9)
+
+        # 4) Referenzlinien: -10% und 110% – sicher sichtbar und oben
+        ax2.axhline(-10,  color="red", lw=1.0, zorder=10, clip_on=False)
+        ax2.axhline(110,  color="red", lw=1.0, zorder=10, clip_on=False)
+
+        ax2.set_ylabel("SoC [%]")
+
+        # optional Ziel/Deadband
+        if target_soc_pct is not None:
+            ax2.axhline(target_soc_pct, ls="--", lw=0.9, zorder=10)
+            if deadband_pct and deadband_pct > 0:
+                lo = target_soc_pct - deadband_pct
+                hi = target_soc_pct + deadband_pct
+                ax2.fill_between(line_x, lo, hi, alpha=0.08, zorder=8)
+
+
+    # X-Achse
+    ts = pd.to_datetime(d["timestamp"])
+    idx = np.linspace(0, n - 1, num=min(8, n), dtype=int)
+    if use_bars:
+        ax.set_xticks(idx)
+        ax.set_xticklabels([ts.iloc[i].strftime("%d.%m %H:%M") for i in idx], rotation=30, ha="right")
+
+    # Legende: unique (beide Achsen)
+    h1, l1 = ax.get_legend_handles_labels()
+    if show_soc:
+        h2, l2 = ax2.get_legend_handles_labels()
+        lab2handle = {**dict(zip(l1, h1)), **dict(zip(l2, h2))}
+        ax.legend(lab2handle.values(), lab2handle.keys(), loc="upper left")
+    else:
+        uniq = dict(zip(l1, h1))
+        ax.legend(uniq.values(), uniq.keys(), loc="upper left")
+
+    fig.tight_layout()
+    fig.savefig(out_png, dpi=150)
+    plt.close(fig)
+
+def plot_energy_components3(
+    df: pd.DataFrame,
+    out_png: Path,
+    title: str = "Energiekomponenten (SRL & Korrektur) + SoC",
+    bar_width: float = 0.9,
+    max_intervals: int = 96,
+    color_alpha: float = 0.55,
+    show_cum_net: bool = False,   # optionale kumulierte Netto-Energie
+    show_soc: bool = True,        # SoC rechts einblenden
+    connect_line: bool = True,    # SoC verbinden (nur Linie)
+    show_segments: bool = False,  # keine kurzen Segmente mehr
+    target_soc_pct: float | None = None,
+    deadband_pct: float = 0.0,
+    fix_axes: bool = True,        # <<< NEU: feste Achsen
+    soc_ylim: tuple[float, float] = (-10.0, 110.0),  # <<< SoC-Fenster
+    energy_pad_pct: float = 0.10, # Kopf-/Fußfreiheit für linke Achse
+) -> None:
+    need = {"timestamp","market_power_mw","bias_power_mw","cmd_power_mw"}
+    if show_soc:
+        need = need | {"soc_pct"}
+    if not need.issubset(df.columns):
+        raise KeyError(f"Erwarte Spalten: {need}")
+
+    DT_H = 0.25  # 15 min
+    d = df.sort_values("timestamp").reset_index(drop=True)
+    n = len(d)
+    x = np.arange(n)
+
+    # Leistungen -> Energien je Intervall
+    M = d["market_power_mw"].astype(float).to_numpy()
+    B = d["bias_power_mw"].astype(float).to_numpy()
+    P = d["cmd_power_mw"].astype(float).to_numpy()
+
+    E_M = M * DT_H
+    E_B = B * DT_H
+    E_P = P * DT_H
+
+    # Für Stacking positive/negative Teile trennen
+    M_pos = np.clip(E_M, 0, None); M_neg = np.clip(E_M, None, 0)
+    B_pos = np.clip(E_B, 0, None); B_neg = np.clip(E_B, None, 0)
+
+    use_bars = n <= max_intervals
+    fig, ax = plt.subplots(figsize=(12, 4.2))
+
+    if use_bars:
+        # Gestapelte Energiesäulen
+        ax.bar(x, M_pos, width=bar_width, color="blue",   alpha=color_alpha, label="SRL+ Energie",   linewidth=0)
+        ax.bar(x, B_pos, width=bar_width, color="green",  alpha=color_alpha, label="Korr.-Energie", linewidth=0, bottom=M_pos)
+        ax.bar(x, M_neg, width=bar_width, color="orange", alpha=color_alpha, label="SRL− Energie",  linewidth=0)
+        ax.bar(x, B_neg, width=bar_width, color="green",  alpha=color_alpha, linewidth=0, bottom=M_neg)
+    else:
+        ax.plot(d["timestamp"], E_M, lw=0.8, alpha=0.65, label="SRL-Energie")
+        ax.plot(d["timestamp"], E_B, lw=0.8, alpha=0.65, label="Korr.-Energie")
+
+    # === feste linke Achse: symmetrisch um 0 ==============================
+    if fix_axes:
+        # höchste positive/negative gestapelte Säule bestimmen
+        pos_stack = M_pos + B_pos
+        neg_stack = M_neg + B_neg  # negative Werte
+        pos_max = float(pos_stack.max()) if len(pos_stack) else 0.0
+        neg_min = float(neg_stack.min()) if len(neg_stack) else 0.0  # ≤ 0
+        emax = max(pos_max, -neg_min, 1e-9) * (1.0 + energy_pad_pct)
+        ax.set_ylim(-emax, emax)
+    # =====================================================================
+
+    # Optional: kumulative Netto-Energie (Diagnose)
+    if show_cum_net:
+        cum = np.cumsum(E_P)
+        ax.plot(x if use_bars else d["timestamp"], cum, color="black", lw=1.0, label="kumulierte Netto-Energie", zorder=7)
+
+    ax.axhline(0, ls="--", lw=0.8)
+    ax.set_ylabel("Energie pro Intervall [MWh]")
+    ax.set_title(title)
+
+    # SoC-Overlay (rechte Achse): feste Skala, nur Linie
+    if show_soc:
+        SOC = d["soc_pct"].astype(float).to_numpy()
+        ax2 = ax.twinx()
+        ax2.set_zorder(ax.get_zorder() + 1)
+        ax2.patch.set_alpha(0.0)  # transparent
+
+        if fix_axes:
+            ax2.set_ylim(*soc_ylim)  # z.B. (-10, 110)
+
+        # reine SoC-Linie
+        line_x = x if use_bars else d["timestamp"]
+        ax2.plot(line_x, SOC, color="black", lw=1.2, label="SoC [%] (rechte Achse)", zorder=9)
+
+        # Referenzlinien 0% und 100% (immer sichtbar in soc_ylim)
+        ax2.axhline(0,   color="red", lw=1.0, zorder=10, clip_on=False)
+        ax2.axhline(100, color="red", lw=1.0, zorder=10, clip_on=False)
+
+        ax2.set_ylabel("SoC [%]")
+
+        # Zielband optional
+        if target_soc_pct is not None:
+            ax2.axhline(target_soc_pct, ls="--", lw=0.9, zorder=10)
+            if deadband_pct and deadband_pct > 0:
+                lo = target_soc_pct - deadband_pct
+                hi = target_soc_pct + deadband_pct
+                ax2.fill_between(line_x, lo, hi, alpha=0.08, zorder=8)
+
+    # X-Achse
+    ts = pd.to_datetime(d["timestamp"])
+    if use_bars:
+        idx = np.linspace(0, n - 1, num=min(8, n), dtype=int)
+        ax.set_xticks(idx)
+        ax.set_xticklabels([ts.iloc[i].strftime("%d.%m %H:%M") for i in idx], rotation=30, ha="right")
+
+    # Legende (unique, ggf. von beiden Achsen)
+    h1, l1 = ax.get_legend_handles_labels()
+    if show_soc:
+        h2, l2 = ax2.get_legend_handles_labels()
+        lab2handle = {**dict(zip(l1, h1)), **dict(zip(l2, h2))}
+        ax.legend(lab2handle.values(), lab2handle.keys(), loc="upper left")
+    else:
+        uniq = dict(zip(l1, h1))
+        ax.legend(uniq.values(), uniq.keys(), loc="upper left")
+
+    fig.tight_layout()
+    fig.savefig(out_png, dpi=150)
+    plt.close(fig)
