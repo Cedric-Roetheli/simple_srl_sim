@@ -45,17 +45,18 @@ pip install -e .
 
 CLI – Schnellstart
 1) Market-only (ohne Bias), No-Overflow
-bash
 Code kopieren
+```bash
 python -m simple_srl_sim.cli ^
   --input .\out\2024_ymax_100\srl_activation_vs_awarded_2024.csv ^
   --compare-to awarded ^
   --cap-mwh 2 --power-mw 1 --soc0-pct 50 ^
   --outdir .\out\run_market_only_no_overflow ^
   --no-overflow
+```
 2) Market + Bias-Reserve (fixed share), No-Overflow
-bash
 Code kopieren
+```bash
 python -m simple_srl_sim.cli ^
   --input .\out\2024_ymax_100\srl_activation_vs_awarded_2024.csv ^
   --compare-to awarded ^
@@ -63,14 +64,14 @@ python -m simple_srl_sim.cli ^
   --bias-share-pct 20 --target-soc-pct 50 --deadband-pct 3 ^
   --outdir .\out\run_bias_no_overflow ^
   --no-overflow
+```
 3) Dasselbe mit Overflow
 Füge --overflow hinzu (der SoC darf temporär <0 %/>100 % werden, nur (Y) begrenzt).
 
 YAML-Konfiguration (empfohlen)
 Lege z. B. config.yml an:
 
-yaml
-Code kopieren
+```bash
 input: ".\\out\\2024_ymax_100\\srl_activation_vs_awarded_2024.csv"
 compare_to: "awarded"        # oder "offered"
 
@@ -102,11 +103,12 @@ plots:
   # Energy-Plot: SoC rechts mit fester Skala
   show_cum_net: false
   soc_ylim: [-10, 110]
+```
 Run:
 
-bash
-Code kopieren
+```bash
 python -m simple_srl_sim.cli --config .\config.yml
+```
 Mechanik (kurz)
 Zeitschritt: Δt = 0.25 h.
 
@@ -137,14 +139,14 @@ KPIs & Overflow-Vergleich
 Vergleichsskript
 Modul ausführen (editiert installiert oder PYTHONPATH=src gesetzt):
 
-bash
-Code kopieren
+```bash
 python -m simple_srl_sim.compare_market_only_overflow ^
   --input .\out\2024_ymax_100\srl_activation_vs_awarded_2024.csv ^
   --compare-to awarded ^
   --cap-mwh 2 --power-mw 1 --soc0-pct 50 ^
   --price-csv .\out\2024_ymax_100\srl_activation_vs_awarded_2024.csv ^
   --outdir .\out\market_only_overflow_compare
+```
 Outputs
 
 market_only_overflow_compare_timeseries.csv
