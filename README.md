@@ -170,4 +170,4 @@ Pfadverwechslungen bei OneDrive:
 Verwende absolute Pfade bei --input und --outdir oder Variablen wie $PWD.
 
 Lizenz / Kontakt
-tbd. – intern Eniwa; Rückfragen an @cedric.roetheli.
+tbd. – intern Eniwa; Rückfragen an cedric.roetheli@eniwa.ch
