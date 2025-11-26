@@ -6,7 +6,7 @@ import yaml
 
 from .analyzer import load_year_csv, ensure_pct_cols, slice_timeframe
 from .storage import Config, simulate_market_only, simulate_market_fixed_bias
-from .plotting import plot_soc, plot_soc_with_bounds, plot_power, plot_pct_net, plot_activation_rates, plot_cum_energy_components, plot_budget_utilization, plot_soc_with_target, plot_power_components_fixed_bias, plot_power_components_bars_with_setpoint2, plot_power_components_bars_with_soc2, plot_energy_components3, plot_power_components2
+from .plotting import plot_soc, plot_soc_with_bounds, plot_power, plot_pct_net, plot_activation_rates, plot_cum_energy_components, plot_budget_utilization, plot_soc_with_target, plot_power_components_fixed_bias, plot_power_components_bars_with_setpoint2, plot_power_components_bars_with_soc2, plot_energy_components3, plot_power_components2, plot_budget_utilization_100pct_stacked
 from .build_market_csv import build_market_csv_from_files
 
 def run_sim(input_csv: Path, compare_to: str, cap_mwh: float, power_mw: float, soc0_pct: float,
@@ -112,6 +112,12 @@ def run_sim(input_csv: Path, compare_to: str, cap_mwh: float, power_mw: float, s
                                     fix_axes=True,
                                     soc_ylim=(-10, 110),
                                 )
+            plot_budget_utilization_100pct_stacked(
+                                    sim,                                    # DataFrame mit market_power_mw, bias_power_mw, timestamp
+                                    outdir / "budget_utilization_100pct.png",
+                                    power_mw=power_mw,
+                                    show_unused=False,
+            ) 
 
 
         except Exception as e:

@@ -892,3 +892,79 @@ def plot_energy_components3(
     fig.tight_layout()
     fig.savefig(out_png, dpi=150)
     plt.close(fig)
+
+def plot_budget_utilization_100pct_stacked(
+    df: pd.DataFrame,
+    out_png: Path,
+    title: str = "Budget-Nutzung (100% = Nennleistung)",
+    bar_width: float = 0.9,
+    color_alpha: float = 0.6,
+    power_mw: float | None = None,
+    show_unused: bool = True,          # << NEU
+    unused_alpha: float = 0.35,        # << NEU
+) -> None:
+    need = {"timestamp", "market_power_mw", "bias_power_mw"}
+    if not need.issubset(df.columns):
+        raise KeyError(f"Erwarte Spalten: {need}")
+
+    d = df.sort_values("timestamp").reset_index(drop=True).copy()
+
+    # --- Nennleistung Y bestimmen ---
+    Y = None
+    if power_mw is not None:
+        Y = float(power_mw)
+    elif "power_mw" in d.columns and pd.api.types.is_numeric_dtype(d["power_mw"]):
+        # Falls als Spalte vorhanden (konstant), Median als robustes Y
+        Y = float(d["power_mw"].median())
+    elif {"market_budget_max_mw", "bias_budget_max_mw"}.issubset(d.columns):
+        # Summe der Budgets (sollte i.d.R. Y ergeben; Median gegen Ausreißer)
+        Y = float((d["market_budget_max_mw"].abs() + d["bias_budget_max_mw"].abs()).median())
+
+    if not (isinstance(Y, (int, float)) and Y > 0):
+        raise ValueError("Konnte Nennleistung Y (power_mw) nicht ermitteln. "
+                         "Bitte 'power_mw' als Argument übergeben oder Budgets/Spalte bereitstellen.")
+
+    # --- Komponenten als |MW| ---
+    M = d["market_power_mw"].astype(float).abs().to_numpy()
+    B = d["bias_power_mw"].astype(float).abs().to_numpy()
+
+    # Robustheit: Falls M+B > Y, anteilig auf Y skalieren, damit Summe ≤ Y bleibt
+    total = M + B
+    scale = np.ones_like(total)
+    over = total > Y
+    scale[over] = Y / np.maximum(total[over], 1e-12)
+    M_scaled = M * scale
+    B_scaled = B * scale
+    unused_mw = np.maximum(0.0, Y - (M_scaled + B_scaled))
+    # Prozentanteile
+    M_pct = (M_scaled / Y) * 100.0
+    B_pct = (B_scaled / Y) * 100.0
+    U_pct = np.maximum(0.0, 100.0 - (M_pct + B_pct))
+
+    n = len(d)
+    x = np.arange(n)
+
+    fig, ax = plt.subplots(figsize=(12, 3.8))
+    ax.bar(x, M_pct, width=bar_width, color="blue",  alpha=color_alpha, label="SRL [%]",  linewidth=0)
+    ax.bar(x, B_pct, width=bar_width, color="green", alpha=color_alpha, label="Bias [%]",  linewidth=0, bottom=M_pct)
+
+    # „Nicht genutzt“ nur anzeigen, wenn gewünscht
+    if show_unused:
+        ax.bar(x, U_pct, width=bar_width, color="grey", alpha=unused_alpha,
+               label="Nicht genutzt [%]", linewidth=0, bottom=M_pct + B_pct)
+
+    ax.set_ylim(0, 105)
+    ax.axhline(100, ls="--", lw=0.8, color="black", alpha=0.6)
+    ax.set_ylabel("% von Y")
+    ax.set_title(title)
+
+    # Ticks hübsch formatieren (bei vielen Punkten begrenzen)
+    ts = pd.to_datetime(d["timestamp"])
+    idx = np.linspace(0, n - 1, num=min(8, n), dtype=int)
+    ax.set_xticks(idx)
+    ax.set_xticklabels([ts.iloc[i].strftime("%d.%m %H:%M") for i in idx], rotation=30, ha="right")
+
+    ax.legend(loc="upper right")
+    fig.tight_layout()
+    fig.savefig(out_png, dpi=150)
+    plt.close(fig)
