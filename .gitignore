@@ -13,7 +13,7 @@ out/
 *.png
 
 # Lokale Daten (nicht ins Repo)
-data/
+# data/
 # Falls du kleine Demo-Dateien willst: data/sample/*
 # !data/sample/
 
