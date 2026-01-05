@@ -40,7 +40,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate
 # Editierbare Installation (empfohlen) – findet das src-Layout zuverlässig
 pip install -e .
-```bash
+```
 
 ---
 
