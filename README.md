@@ -115,7 +115,8 @@ Code kopieren
 ```bash
 python -m simple_srl_sim.cli --config .\config.yml
 ```
-Mechanik (kurz)
+## Mechanik (kurz)
+
 Zeitschritt: Δt = 0.25 h.
 
 Netto-Anforderung: P_req = Y · pct_net/100.
