@@ -309,3 +309,4 @@ python plot_non_delivery_vs_bg.py `
 
 ## Changelog
 - **2025-11-26**: Ergänzt um Pönale‑Berechnung, Jahresvergleich Korrektur vs. Nichtlieferung, sowie BG‑Preis‑Plots. Bestehende Inhalte bleiben unverändert.
+- **2026-01-05**: Formatierung README
